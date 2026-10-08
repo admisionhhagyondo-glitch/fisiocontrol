@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FisioControl - Terapia Física</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f1f5f9;color:#1e293b}
+header{background:linear-gradient(135deg,#0f766e,#0f4c5c);color:white;padding:16px 22px;position:sticky;top:0;z-index:10;box-shadow:0 3px 12px #0002}
+.head{max-width:1250px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:15px}.brand h1{margin:0;font-size:25px}.brand p{margin:3px 0 0;font-size:13px;color:#d9fffb}
+.actions{display:flex;gap:7px;flex-wrap:wrap}button,.btn{border:0;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:700}
+.btn-white{background:white;color:#0f766e}.btn-green{background:#059669;color:white}.btn-orange{background:#f59e0b;color:white}
+main{max-width:1250px;margin:22px auto;padding:0 15px}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+.tab{background:white;color:#475569;border:1px solid #cbd5e1}.tab.active{background:#0f766e;color:white}
+.section{display:none}.section.active{display:block}.grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.card{background:white;border-radius:14px;padding:18px;border:1px solid #e2e8f0;box-shadow:0 2px 8px #0000000d}.stat .label{font-size:12px;color:#64748b;text-transform:uppercase;font-weight:700}.stat .value{font-size:31px;font-weight:800;margin-top:5px;color:#0f766e}
+.formgrid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.field label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:5px}.field input,.field select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:white}
+.tablewrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:13px}.table th{background:#f8fafc;text-align:left;color:#475569}.table th,.table td{padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap}.ok{color:#047857;font-weight:800}.no{color:#dc2626;font-weight:800}
+.search{padding:10px;border:1px solid #cbd5e1;border-radius:8px;width:min(420px,100%)}h2{margin-top:0}.muted{color:#64748b;font-size:13px}.notice{background:#ecfeff;border-left:5px solid #0f766e;padding:12px;border-radius:8px;margin-bottom:15px}
+.patient-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}.patient{border:1px solid #e2e8f0;border-radius:12px;padding:14px}.patient h3{margin:7px 0;font-size:15px}.badge{display:inline-block;padding:4px 7px;border-radius:99px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:800}
+.progress{height:8px;background:#e2e8f0;border-radius:20px;overflow:hidden;margin-top:7px}.progress>div{height:100%;background:#0f766e}
+footer{text-align:center;color:#64748b;font-size:12px;padding:25px}
+@media(max-width:700px){.head{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions button{flex:1}}
+@media print{header,.tabs,.no-print,.actions{display:none!important}body{background:white}.section{display:none!important}.section.active{display:block!important}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<header>
+<div class="head">
+<div class="brand"><h1>🩺 FisioControl</h1><p>Control de asistencia y sesiones de Terapia Física</p></div>
+<div class="actions">
+<button class="btn-white" onclick="backupData()">☁️ Guardar respaldo</button>
+<button class="btn-orange" onclick="document.getElementById('restore').click()">📂 Recuperar</button>
+<button class="btn-green" onclick="exportCSV()">⬇️ CSV</button>
+<input id="restore" type="file" accept=".json" style="display:none" onchange="restoreData(event)">
+</div>
+</div>
+</header>
+<main>
+<div class="tabs">
+<button class="tab active" onclick="tab('inicio',this)">📊 Resumen</button>
+<button class="tab" onclick="tab('registro',this)">➕ Registrar asistencia</button>
+<button class="tab" onclick="tab('pacientes',this)">👥 Pacientes</button>
+<button class="tab" onclick="tab('informe',this)">📋 Informe mensual</button>
+</div>
+
+<section id="inicio" class="section active">
+<div class="notice"><b>Base inicial cargada:</b> 85 registros del 01 al 07 de octubre de 2026. Hay 74 sesiones asistidas y 11 inasistencias. Puedes seguir agregando registros.</div>
+<div class="grid stats">
+<div class="card stat"><div class="label">Registros</div><div class="value" id="sReg">0</div></div>
+<div class="card stat"><div class="label">Sesiones realizadas</div><div class="value" id="sSes">0</div></div>
+<div class="card stat"><div class="label">Inasistencias</div><div class="value" id="sNo">0</div></div>
+<div class="card stat"><div class="label">Pacientes únicos</div><div class="value" id="sPac">0</div></div>
+</div>
+<br>
+<div class="card"><h2>Resumen por día</h2><div class="tablewrap"><table class="table"><thead><tr><th>Fecha</th><th>Registros</th><th>Sesiones</th><th>Inasistencias</th><th>Pacientes atendidos</th></tr></thead><tbody id="daily"></tbody></table></div></div>
+</section>
+
+<section id="registro" class="section">
+<div class="card">
+<h2>➕ Registrar nueva asistencia</h2>
+<p class="muted">Escribe el documento. Si el paciente ya existe, su nombre se completa automáticamente.</p>
+<form onsubmit="addRecord(event)">
+<div class="grid formgrid">
+<div class="field"><label>Fecha</label><input id="fecha" type="date" required></div>
+<div class="field"><label>Hora</label><input id="hora" type="time" required></div>
+<div class="field"><label>Documento / Código</label><input id="codigo" required oninput="autoName()" placeholder="Ej. 5.787.321"></div>
+<div class="field"><label>Nombre</label><input id="nombre" required></div>
+<div class="field"><label>Asistencia</label><select id="asistencia"><option value="x">Sí, asistió</option><option value="no">No asistió</option></select></div>
+</div><br><button class="btn btn-green" type="submit">💾 Guardar registro</button>
+</form>
+</div>
+<br>
+<div class="card"><h2>Historial</h2><input class="search" id="searchR" placeholder="Buscar por nombre, documento o fecha" oninput="render()"><br><br>
+<div class="tablewrap"><table class="table"><thead><tr><th>Fecha</th><th>Hora</th><th>Nombre</th><th>Documento</th><th>Asistencia</th><th>Sesión</th><th>Acción</th></tr></thead><tbody id="records"></tbody></table></div></div>
+</section>
+
+<section id="pacientes" class="section">
+<div class="card"><h2>👥 Directorio de pacientes</h2><input class="search" id="searchP" placeholder="Buscar paciente o documento" oninput="renderPatients()"><br><br>
+<div id="patients" class="grid patient-grid"></div></div>
+</section>
+
+<section id="informe" class="section">
+<div class="card no-print"><h2>📋 Informe mensual</h2><div class="grid formgrid"><div class="field"><label>Mes</label><input id="month" type="month" onchange="renderReport()"></div><div><br><button class="btn btn-green" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button></div></div></div><br>
+<div class="grid stats">
+<div class="card stat"><div class="label">Sesiones</div><div class="value" id="mSes">0</div></div>
+<div class="card stat"><div class="label">Pacientes únicos</div><div class="value" id="mPac">0</div></div>
+<div class="card stat"><div class="label">Inasistencias</div><div class="value" id="mNo">0</div></div>
+<div class="card stat"><div class="label">Registros</div><div class="value" id="mReg">0</div></div>
+</div><br>
+<div class="card"><h2>Detalle diario</h2><div class="tablewrap"><table class="table"><thead><tr><th>Fecha</th><th>Sesiones</th><th>Inasistencias</th><th>Pacientes</th></tr></thead><tbody id="monthly"></tbody></table></div></div>
+</section>
+</main>
+<footer>FisioControl · Los datos se guardan en este navegador. Usa <b>Guardar respaldo</b> y sube el archivo .json a Google Drive.</footer>
+
+<script>
+const initialData = [{"fecha": "2026-10-01", "hora": "07:00", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "07:30", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "08:00", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "08:30", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "09:00", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "09:30", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "10:00", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "10:30", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "11:00", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "11:30", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "13:30", "nombre": "GALLEGO QUINTERO YOLIANA MARCELA", "codigo": "21.855.032", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "14:00", "nombre": "GALLEGO QUINTERO YOLIANA MARCELA", "codigo": "21.855.032", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "14:30", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "15:00", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "15:30", "nombre": "PIMIENTO MARIA RAMONA", "codigo": "28.023.405", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "16:00", "nombre": "PIMIENTO MARIA RAMONA", "codigo": "28.023.405", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "16:30", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-01", "hora": "17:00", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "07:00", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "07:30", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "08:00", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "08:30", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "09:00", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "09:30", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "10:00", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "10:30", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "14:00", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "no", "count": 0}, {"fecha": "2026-10-02", "hora": "14:30", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "no", "count": 0}, {"fecha": "2026-10-02", "hora": "15:00", "nombre": "PIMIENTO MARIA RAMONA", "codigo": "28.023.405", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "15:30", "nombre": "PIMIENTO MARIA RAMONA", "codigo": "28.023.405", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "16:00", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-02", "hora": "16:30", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "07:00", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "no", "count": 0}, {"fecha": "2026-10-05", "hora": "07:30", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "no", "count": 0}, {"fecha": "2026-10-05", "hora": "08:00", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "08:30", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "09:00", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "09:30", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "10:00", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "10:30", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "11:00", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "11:30", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "13:30", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "14:00", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "14:30", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "no", "count": 0}, {"fecha": "2026-10-05", "hora": "15:00", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "no", "count": 0}, {"fecha": "2026-10-05", "hora": "15:30", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "16:00", "nombre": "TORRES GAMBOA EMERITA", "codigo": "37.925.949", "asistencia": "no", "count": 0}, {"fecha": "2026-10-05", "hora": "16:30", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-05", "hora": "17:00", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "07:00", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "07:30", "nombre": "BARRIOS D SANTIAGO YANDERY COROMOTO", "codigo": "5.787.321", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "08:00", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "08:30", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "09:00", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "09:30", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "10:00", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "10:30", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "11:00", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "11:30", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "13:30", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "14:00", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "14:30", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "15:00", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "15:30", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "16:00", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-06", "hora": "16:30", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "07:00", "nombre": "TANGARIFE RODRIGUEZ JOSE MIGUEL", "codigo": "1.148.944.060", "asistencia": "no", "count": 0}, {"fecha": "2026-10-07", "hora": "07:30", "nombre": "TANGARIFE RODRIGUEZ JOSE MIGUEL", "codigo": "1.148.944.060", "asistencia": "no", "count": 0}, {"fecha": "2026-10-07", "hora": "08:00", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "08:30", "nombre": "JEREZ BLANQUISETH HUMBERTO ORLANDO", "codigo": "91.440.632", "asistencia": "no", "count": 0}, {"fecha": "2026-10-07", "hora": "09:00", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "no", "count": 0}, {"fecha": "2026-10-07", "hora": "09:30", "nombre": "MANTILLA SERNA JAVIER", "codigo": "1.005.177.201", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "10:00", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "10:30", "nombre": "VASCO TORRES ELISA MARISOL", "codigo": "1.096.233.428", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "11:00", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "11:30", "nombre": "BOLADOS OROZCO DANIS LUZ", "codigo": "1.050.551.900", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "13:30", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "14:00", "nombre": "RAMIREZ MOSQUERA JESUS YARLI", "codigo": "1.042.212.101", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "14:30", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "15:00", "nombre": "MARTINEZ TAMAYO LEIDY JOHANA", "codigo": "1.042.213.439", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "15:30", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "16:00", "nombre": "NIETO RUIZ NINZON", "codigo": "1.096.234.093", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "16:30", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}, {"fecha": "2026-10-07", "hora": "17:00", "nombre": "FINOL PARRA ANGEL ADOLFO", "codigo": "5.999.012", "asistencia": "x", "count": 1}];
+let records = JSON.parse(localStorage.getItem("fisio_records_v3") || "null") || initialData;
+
+function persist(){localStorage.setItem("fisio_records_v3",JSON.stringify(records));render();renderPatients();renderReport();}
+function tab(id,btn){document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="pacientes")renderPatients();if(id==="informe")renderReport();}
+function autoName(){let c=document.getElementById("codigo").value.trim();let p=records.find(x=>x.codigo===c);if(p)document.getElementById("nombre").value=p.nombre;}
+function addRecord(e){e.preventDefault();records.unshift({fecha:fecha.value,hora:hora.value,codigo:codigo.value.trim(),nombre:nombre.value.trim().toUpperCase(),asistencia:asistencia.value,count:asistencia.value==="x"?1:0});persist();e.target.reset();fecha.value=new Date().toISOString().slice(0,10);alert("Registro guardado correctamente.");}
+function del(i){if(confirm("¿Eliminar este registro?")){records.splice(i,1);persist();}}
+function render(){
+let q=(document.getElementById("searchR")?.value||"").toLowerCase();
+let f=records.filter(r=>(r.nombre+" "+r.codigo+" "+r.fecha).toLowerCase().includes(q));
+recordsEl=document.getElementById("records");recordsEl.innerHTML=f.map(r=>{let i=records.indexOf(r);return `<tr><td>${r.fecha}</td><td>${r.hora}</td><td>${r.nombre}</td><td>${r.codigo}</td><td class="${r.count?'ok':'no'}">${r.count?'ASISTIÓ':'NO ASISTIÓ'}</td><td>${r.count}</td><td><button onclick="del(${i})">Eliminar</button></td></tr>`}).join("");
+document.getElementById("sReg").textContent=records.length;
+document.getElementById("sSes").textContent=records.filter(r=>r.count).length;
+document.getElementById("sNo").textContent=records.filter(r=>!r.count).length;
+document.getElementById("sPac").textContent=new Set(records.filter(r=>r.count).map(r=>r.codigo)).size;
+let map={};records.forEach(r=>{map[r.fecha]??={n:0,s:0,no:0,p:new Set()};map[r.fecha].n++;r.count? (map[r.fecha].s++,map[r.fecha].p.add(r.codigo)):map[r.fecha].no++});
+document.getElementById("daily").innerHTML=Object.keys(map).sort().reverse().map(d=>`<tr><td>${d}</td><td>${map[d].n}</td><td class="ok">${map[d].s}</td><td class="no">${map[d].no}</td><td>${map[d].p.size}</td></tr>`).join("");
+}
+function renderPatients(){
+let q=(document.getElementById("searchP")?.value||"").toLowerCase(),m={};
+records.forEach(r=>{m[r.codigo]??={codigo:r.codigo,nombre:r.nombre,s:0,no:0};r.count?m[r.codigo].s++:m[r.codigo].no++});
+let ps=Object.values(m).filter(p=>(p.nombre+" "+p.codigo).toLowerCase().includes(q));
+document.getElementById("patients").innerHTML=ps.map(p=>`<div class="patient"><span class="badge">${p.codigo}</span><h3>${p.nombre}</h3><div>Sesiones realizadas: <b>${p.s}</b></div><div>Inasistencias: <b class="no">${p.no}</b></div></div>`).join("");
+}
+function renderReport(){
+let month=document.getElementById("month").value||"2026-10";let f=records.filter(r=>r.fecha.startsWith(month));
+document.getElementById("mReg").textContent=f.length;document.getElementById("mSes").textContent=f.filter(r=>r.count).length;document.getElementById("mNo").textContent=f.filter(r=>!r.count).length;document.getElementById("mPac").textContent=new Set(f.filter(r=>r.count).map(r=>r.codigo)).size;
+let map={};f.forEach(r=>{map[r.fecha]??={s:0,no:0,p:new Set()};r.count?(map[r.fecha].s++,map[r.fecha].p.add(r.codigo)):map[r.fecha].no++});
+document.getElementById("monthly").innerHTML=Object.keys(map).sort().map(d=>`<tr><td>${d}</td><td class="ok">${map[d].s}</td><td class="no">${map[d].no}</td><td>${map[d].p.size}</td></tr>`).join("");
+}
+function backupData(){
+let data={app:"FisioControl",version:3,createdAt:new Date().toISOString(),records};
+let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="FisioControl_Respaldo_"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href);alert("Respaldo creado. Súbelo a tu Google Drive.");
+}
+function restoreData(e){
+let file=e.target.files[0];if(!file)return;let rd=new FileReader();rd.onload=()=>{try{let d=JSON.parse(rd.result),r=Array.isArray(d)?d:d.records;if(!Array.isArray(r))throw 0;if(confirm("Se encontraron "+r.length+" registros. ¿Reemplazar la información actual?")){records=r;persist();alert("Información recuperada correctamente.");}}catch(x){alert("El archivo no es un respaldo válido de FisioControl.");}e.target.value=""};rd.readAsText(file);
+}
+function exportCSV(){
+let lines=["Fecha;Hora;Nombre;Codigo;Asistencia;Sesion",...records.map(r=>[r.fecha,r.hora,r.nombre,r.codigo,r.asistencia,r.count].map(x=>`"${String(x).replaceAll('"','""')}"`).join(";"))];
+let blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="FisioControl_Asistencia.csv";a.click();URL.revokeObjectURL(a.href);
+}
+document.addEventListener("DOMContentLoaded",()=>{document.getElementById("fecha").value=new Date().toISOString().slice(0,10);document.getElementById("month").value="2026-10";render();renderPatients();renderReport();});
+</script>
+</body>
+</html>
